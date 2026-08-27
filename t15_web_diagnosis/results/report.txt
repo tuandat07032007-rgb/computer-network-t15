@@ -1,0 +1,105 @@
+======================================================================
+KẾT QUẢ T15 - PHÂN LOẠI NGUYÊN NHÂN WEB CHẬM/LỖI
+======================================================================
+Số mẫu huấn luyện: 2800 | Số mẫu kiểm thử: 1200
+Cross-validation 5-fold trên tập train (macro F1): 0.910 ± 0.010
+
+Macro F1 - Baseline (luật ngưỡng): 0.848
+Macro F1 - Decision Tree          : 0.917
+Mức cải thiện                     : +0.069
+
+----------------------------------------------------------------------
+BÁO CÁO CHI TIẾT - BASELINE
+----------------------------------------------------------------------
+                 precision    recall  f1-score   support
+
+         NORMAL       0.88      0.83      0.85       617
+    DNS_PROBLEM       1.00      0.90      0.94       143
+CONNECT_PROBLEM       0.91      0.84      0.87       141
+    TLS_PROBLEM       0.69      0.88      0.77       123
+   HTTP_PROBLEM       0.74      0.87      0.80       176
+
+       accuracy                           0.85      1200
+      macro avg       0.84      0.86      0.85      1200
+   weighted avg       0.86      0.85      0.85      1200
+
+----------------------------------------------------------------------
+BÁO CÁO CHI TIẾT - DECISION TREE
+----------------------------------------------------------------------
+                 precision    recall  f1-score   support
+
+         NORMAL       0.95      0.90      0.92       617
+    DNS_PROBLEM       0.89      0.99      0.94       143
+CONNECT_PROBLEM       0.91      0.91      0.91       141
+    TLS_PROBLEM       0.92      0.93      0.93       123
+   HTTP_PROBLEM       0.84      0.92      0.88       176
+
+       accuracy                           0.92      1200
+      macro avg       0.90      0.93      0.92      1200
+   weighted avg       0.92      0.92      0.92      1200
+
+
+======================================================================
+PHÂN TÍCH LỖI (ERROR ANALYSIS)
+======================================================================
+
+Độ chính xác theo từng nhóm nguyên nhân:
+                   n  acc_baseline  acc_decision_tree
+nguyen_nhan                                          
+NORMAL           617         0.827              0.898
+DNS_PROBLEM      143         0.895              0.993
+CONNECT_PROBLEM  141         0.837              0.915
+TLS_PROBLEM      123         0.878              0.935
+HTTP_PROBLEM     176         0.869              0.920
+
+Tổng số ca Decision Tree dự đoán sai: 98/1200
+Các cặp nhầm lẫn phổ biến nhất (thật -> dự đoán):
+y_true           y_ml           
+NORMAL           HTTP_PROBLEM       29
+                 DNS_PROBLEM        14
+CONNECT_PROBLEM  NORMAL             11
+NORMAL           CONNECT_PROBLEM    11
+HTTP_PROBLEM     NORMAL             11
+NORMAL           TLS_PROBLEM         9
+
+Ngữ cảnh của các ca sai (so với toàn tập test):
+  tỉ lệ cache warm : sai=0.46 | chung=0.48
+  tỉ lệ reuse conn : sai=0.15 | chung=0.17
+  tỉ lệ giờ cao điểm: sai=0.24 | chung=0.30
+  trung vị total_ms : sai=521 ms | chung=555 ms
+
+Nhận xét: sai sót tập trung ở các ca CHẬM NHẸ, nơi một pha chỉ hơi vượt mức
+nền nên ranh giới giữa NORMAL và *_PROBLEM bị mờ; các ca hỏng hẳn (timeout, 5xx)
+gần như luôn được phân loại đúng.
+
+======================================================================
+10 TẦNG ĐẦU CỦA CÂY QUYẾT ĐỊNH (để giải thích cho giảng viên)
+======================================================================
+|--- dns_ms <= 68.27
+|   |--- tls_over_tcp <= 6.35
+|   |   |--- tcp_share <= 0.25
+|   |   |   |--- server_ms <= 379.92
+|   |   |   |   |--- truncated branch of depth 3
+|   |   |   |--- server_ms >  379.92
+|   |   |   |   |--- truncated branch of depth 3
+|   |   |--- tcp_share >  0.25
+|   |   |   |--- tls_share <= 0.36
+|   |   |   |   |--- truncated branch of depth 3
+|   |   |   |--- tls_share >  0.36
+|   |   |   |   |--- truncated branch of depth 3
+|   |--- tls_over_tcp >  6.35
+|   |   |--- tls_share <= 0.39
+|   |   |   |--- class: HTTP_PROBLEM
+|   |   |--- tls_share >  0.39
+|   |   |   |--- tls_share <= 0.50
+|   |   |   |   |--- class: TLS_PROBLEM
+|   |   |   |--- tls_share >  0.50
+|   |   |   |   |--- truncated branch of depth 2
+|--- dns_ms >  68.27
+|   |--- dns_share <= 0.13
+|   |   |--- class: DNS_PROBLEM
+|   |--- dns_share >  0.13
+|   |   |--- dns_ms <= 97.52
+|   |   |   |--- class: DNS_PROBLEM
+|   |   |--- dns_ms >  97.52
+|   |   |   |--- class: DNS_PROBLEM

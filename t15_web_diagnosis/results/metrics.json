@@ -1,0 +1,8 @@
+{
+  "macro_f1_baseline": 0.8483,
+  "macro_f1_decision_tree": 0.9173,
+  "cv_macro_f1_mean": 0.9103,
+  "cv_macro_f1_std": 0.0103,
+  "n_train": 2800,
+  "n_test": 1200
+}
