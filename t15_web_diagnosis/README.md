@@ -10,7 +10,7 @@ với **mô hình Decision Tree**.
 
 | Thành phần | Phiên bản đã kiểm thử |
 |---|---|
-| Hệ điều hành | Ubuntu 24.04 (chạy được trên Windows/macOS) |
+| Hệ điều hành | Windows 11 |
 | Python | 3.12 |
 | pandas | 3.0 (≥2.0 là chạy được) |
 | numpy | 2.4 |
