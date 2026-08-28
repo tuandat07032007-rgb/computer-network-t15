@@ -1,1 +1,11 @@
+# Bỏ qua thư viện của Node.js
 node_modules/
+
+# Bỏ qua môi trường ảo và file rác của Python
+.venv/
+__pycache__/
+*.pyc
+
+# Bỏ qua file cấu hình của phần mềm code (VS Code / PyCharm)
+.idea/
+.vscode/
