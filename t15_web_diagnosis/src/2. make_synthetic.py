@@ -24,6 +24,16 @@ Chạy: python src/make_synthetic.py --n 4000 --seed 42 --out data/raw/synthetic
 
 from __future__ import annotations
 
+import sys
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import argparse
 import numpy as np
 import pandas as pd

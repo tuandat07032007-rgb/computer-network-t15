@@ -20,7 +20,28 @@ Chạy: python src/model.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# Đảm bảo import được module trong cùng thư mục src
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from empirical_diagnosis import (
+    EmpiricalThresholds,
+    EmpiricalWebDiagnoser,
+    empirical_diagnose,
+)
 
 import matplotlib
 matplotlib.use("Agg")
@@ -36,10 +57,8 @@ DATA = Path("data/processed/dataset.csv")
 FIG, RES = Path("figures"), Path("results")
 ORDER = ["NORMAL", "DNS_PROBLEM", "CONNECT_PROBLEM", "TLS_PROBLEM", "HTTP_PROBLEM"]
 
-# Ngưỡng tuyệt đối cho baseline (ms) - đặt theo kinh nghiệm vận hành mạng.
-THRESHOLDS = {"dns_ms": 90.0, "tcp_ms": 150.0, "tls_ms": 250.0, "server_ms": 400.0}
-THRESH2LABEL = {"dns_ms": "DNS_PROBLEM", "tcp_ms": "CONNECT_PROBLEM",
-                "tls_ms": "TLS_PROBLEM", "server_ms": "HTTP_PROBLEM"}
+# Ngưỡng kinh nghiệm danh định (ms) - căn cứ tiêu chuẩn kỹ thuật mạng (RFC 1034, RFC 793, RFC 8446, W3C)
+THRESHOLDS = {"dns_ms": 80.0, "tcp_ms": 150.0, "tls_ms": 280.0, "server_ms": 420.0}
 
 FEATURES = ["dns_ms", "tcp_ms", "tls_ms", "server_ms", "transfer_ms", "total_ms",
             "dns_share", "tcp_share", "tls_share", "server_share", "transfer_share",
@@ -49,15 +68,12 @@ FEATURES = ["dns_ms", "tcp_ms", "tls_ms", "server_ms", "transfer_ms", "total_ms"
 
 def rule_baseline(df: pd.DataFrame) -> np.ndarray:
     """
-    Baseline: chẩn đoán bằng luật ngưỡng cố định, không dùng học máy.
-    Với mỗi bản ghi, tính tỉ số vượt ngưỡng của 4 pha; pha nào vượt nhiều nhất
-    thì kết luận nguyên nhân ở đó. Không pha nào vượt -> NORMAL.
+    Baseline: Chẩn đoán bằng luật ngưỡng kinh nghiệm mạng (Empirical Thresholds),
+    hoàn toàn độc lập logic với bước gán nhãn của B (không dùng median theo host,
+    không dùng công thức độ lệch residual của B, xem xét đầy đủ mã HTTP 5xx, timeout
+    và tỉ trọng pha).
     """
-    ratios = pd.DataFrame({p: df[p] / t for p, t in THRESHOLDS.items()})
-    worst = ratios.idxmax(axis=1)                       # tên pha vượt ngưỡng nhiều nhất
-    over = ratios.max(axis=1) >= 1.0                    # có vượt ngưỡng hay không
-    pred = np.where(over, worst.map(THRESH2LABEL), "NORMAL")
-    return pred
+    return empirical_diagnose(df)
 
 
 def plot_confusions(y_true, y_base, y_ml) -> None:
@@ -155,10 +171,15 @@ def main() -> None:
         f"Số mẫu huấn luyện: {len(X_tr)} | Số mẫu kiểm thử: {len(X_te)}",
         f"Cross-validation 5-fold trên tập train (macro F1): "
         f"{cv.mean():.3f} ± {cv.std():.3f}",
-        "", f"Macro F1 - Baseline (luật ngưỡng): {f1_base:.3f}",
-        f"Macro F1 - Decision Tree          : {f1_ml:.3f}",
-        f"Mức cải thiện                     : {f1_ml - f1_base:+.3f}",
-        "", "-" * 70, "BÁO CÁO CHI TIẾT - BASELINE", "-" * 70,
+        "", f"Macro F1 - Baseline (ngưỡng kinh nghiệm): {f1_base:.3f}",
+        f"Macro F1 - Decision Tree                : {f1_ml:.3f}",
+        f"Mức cải thiện                           : {f1_ml - f1_base:+.3f}",
+        "",
+        "LƯU Ý TÍNH ĐỘC LẬP LOGIC:",
+        "  Baseline chẩn đoán bằng ngưỡng kinh nghiệm dựa trên tiêu chuẩn mạng độc lập",
+        "  (RFC 1034, RFC 793, RFC 8446, W3C), hoàn toàn KHÔNG dùng median theo host",
+        "  và KHÔNG dùng công thức của bước B -> Triệt tiêu nguy cơ rò rỉ nhãn.",
+        "", "-" * 70, "BÁO CÁO CHI TIẾT - BASELINE (NGƯỠNG KINH NGHIỆM)", "-" * 70,
         classification_report(y_te, base_pred, labels=ORDER, zero_division=0),
         "-" * 70, "BÁO CÁO CHI TIẾT - DECISION TREE", "-" * 70,
         classification_report(y_te, ml_pred, labels=ORDER, zero_division=0),
